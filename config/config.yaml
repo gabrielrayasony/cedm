@@ -1,0 +1,78 @@
+# Basic configuration for diffusion model training
+defaults:
+  - network: mlp
+
+# Model configuration
+model:
+  type: "edm"  # or "vp", "ve", "iddpm"
+  network: ${network}  # This references the loaded network config
+  
+  # Model-specific configurations
+  edm:
+    sigma_data: 0.5
+    sigma_min: 0.02
+    sigma_max: 100
+    rho: 7.0
+    P_mean: -1.2
+    P_std: 1.2
+  
+  vp:
+    beta_d: 19.9
+    beta_min: 0.1
+    M: 1000
+    epsilon_t: 1e-5
+    sigma_data: 0.5
+  
+  ve:
+    sigma_min: 0.02
+    sigma_max: 100.0
+    sigma_data: 0.5
+  
+  iddpm:
+    C_1: 0.001
+    C_2: 0.008
+    M: 1000
+    sigma_data: 0.5
+
+# Training configuration
+train:
+  batch_size: 256
+  num_workers: 4
+  learning_rate: 0.001
+  max_epochs: 100
+  accelerator: "auto"
+  devices: 1
+  precision: 16
+  sampling_interval: 5  # Generate samples every 50 epochs
+
+# Dataset configuration
+dataset:
+  name: "swiss_roll"  # or "two_moons", "gaussian_mixture"
+  num_samples: 10000
+  noise: 0.05
+  min_max_normalize: true
+
+# Sampling configuration
+sampling:
+  batch_size: 500
+  n_steps: 10
+  # Evaluation samples
+  eval_samples: 1000
+  eval_batch_size: 100
+
+# Logging configuration
+logging:
+  save_dir: "results"
+  name: "diffusion_experiment"
+  version: "1"
+  log_every_n_steps: 50
+  save_top_k: 3
+  monitor: "val_loss"
+  mode: "min"
+
+# Visualization configuration
+viz:
+  plot_every_n_epochs: 5
+  num_samples: 1000
+  figsize: [6, 6]
+  save_dir: "plots"
