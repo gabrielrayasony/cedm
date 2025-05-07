@@ -1,6 +1,7 @@
 # Basic configuration for diffusion model training
 defaults:
   - network: mlp
+  - dataset: cifar10
 
 # Model configuration
 model:
@@ -37,20 +38,16 @@ model:
 # Training configuration
 train:
   batch_size: 256
-  num_workers: 4
+  num_workers: 8
   learning_rate: 0.001
-  max_epochs: 100
+  max_epochs: 500
   accelerator: "auto"
   devices: 1
-  precision: 16
-  sampling_interval: 5  # Generate samples every 50 epochs
-
-# Dataset configuration
-dataset:
-  name: "swiss_roll"  # or "two_moons", "gaussian_mixture"
-  num_samples: 10000
-  noise: 0.05
-  min_max_normalize: true
+  precision: "16-mixed"
+  amp_backend: "native"
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+  sampling_interval: 50 # Generate samples every 50 epochs
 
 # Sampling configuration
 sampling:

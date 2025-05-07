@@ -37,12 +37,7 @@ def main(cfg: DictConfig):
     
     # Set up data module
     logger.info("Setting up data module...")
-    data_module = get_datamodule(
-        cfg.dataset.name, 
-        cfg.dataset.num_samples, 
-        cfg.train.batch_size, 
-        cfg.train.num_workers
-    )
+    data_module = get_datamodule(cfg.dataset.name, cfg.train.batch_size, cfg.train.num_workers)
     
     # Set up model
     logger.info("Setting up model...")

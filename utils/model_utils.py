@@ -3,7 +3,7 @@
 import torch
 import torch.nn as nn
 from typing import Dict, Any, Optional
-from networks.toy_network import MLP
+from networks.toy_network import MLP, AdvancedMLP
 from networks.preconditioning import (
     EDMPrecond,
     VPPrecond,
@@ -24,14 +24,26 @@ def get_model(config: Dict[str, Any]) -> nn.Module:
     # Get model type
     model_type = config.get('type', 'edm')
     
+    #--------------------------------
     # Create base network
+    #--------------------------------
     network_config = config.get('network', {})
-    base_model = MLP(
-        input_dim=network_config.get('input_dim', 2),
-        hidden_dim=network_config.get('hidden_dim', 128),
-        num_hidden_layers=network_config.get('num_hidden_layers', 4),
-        time_embedding_dim=network_config.get('time_embedding_dim', 8)
-    )
+
+    if network_config.get('type', 'mlp') == 'mlp':
+        base_model = MLP(
+            input_dim=network_config.get('input_dim', 2),
+            hidden_dim=network_config.get('hidden_dim', 128),
+            num_hidden_layers=network_config.get('num_hidden_layers', 4),
+            time_embedding_dim=network_config.get('time_embedding_dim', 8)
+        )
+    elif network_config.get('type', 'mlp') == 'advanced_mlp':
+        base_model = AdvancedMLP(
+            input_dim=network_config.get('input_dim', 2),
+            hidden_dim=network_config.get('hidden_dim', 64),
+            num_hidden_layers=network_config.get('num_hidden_layers', 6),
+        )
+
+    # elif network_config.get('type', 'ddp') == 'unet':
     
     # Create preconditioning based on model type
     if model_type == 'edm':

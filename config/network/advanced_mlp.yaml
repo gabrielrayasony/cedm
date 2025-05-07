@@ -3,7 +3,6 @@ type: "advanced_mlp"
 input_dim: 2
 hidden_dim: 64
 num_hidden_layers: 6
-time_embedding_dim: 64
 use_layer_norm: true
 use_skip_connections: true
 activation: "leaky_relu"

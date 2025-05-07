@@ -217,7 +217,7 @@ class AdvancedMLP(nn.Module):
         self,
         input_dim: int = 2,
         hidden_dim: int = 64,
-        num_layers: int = 6,
+        num_hidden_layers: int = 6,
         norm_cls: nn.Module = nn.LayerNorm,
         activation_fn: nn.Module = nn.LeakyReLU(negative_slope=0.02, inplace=True)
     ):
@@ -233,6 +233,7 @@ class AdvancedMLP(nn.Module):
         super().__init__()
         self.input_dim = input_dim
         self.output_dim = input_dim
+        self.activation = activation_fn
 
         # Input coordinates and time transforms
         self.coord_transform = nn.Linear(input_dim, hidden_dim, bias=False)
@@ -244,7 +245,7 @@ class AdvancedMLP(nn.Module):
 
         # MLP blocks
         self.blocks = nn.ModuleList()
-        for _ in range(num_layers):
+        for _ in range(num_hidden_layers):
             self.blocks.append(
                 BaseBlockMLP(
                     input_dim=hidden_dim,
