@@ -1,44 +1,15 @@
 # Basic configuration for diffusion model training
 defaults:
   - network: mlp
-  - dataset: cifar10
-
-# Model configuration
-model:
-  type: "edm"  # or "vp", "ve", "iddpm"
-  network: ${network}  # This references the loaded network config
-  
-  # Model-specific configurations
-  edm:
-    sigma_data: 0.5
-    sigma_min: 0.02
-    sigma_max: 100
-    rho: 7.0
-    P_mean: -1.2
-    P_std: 1.2
-  
-  vp:
-    beta_d: 19.9
-    beta_min: 0.1
-    M: 1000
-    epsilon_t: 1e-5
-    sigma_data: 0.5
-  
-  ve:
-    sigma_min: 0.02
-    sigma_max: 100.0
-    sigma_data: 0.5
-  
-  iddpm:
-    C_1: 0.001
-    C_2: 0.008
-    M: 1000
-    sigma_data: 0.5
+  - dataset: swiss_roll
+  - precond: edm  # This will load config/precond/edm.yaml
+  - loss: edm    # This will load config/loss/edm.yaml
+  - model: edm
 
 # Training configuration
 train:
   batch_size: 256
-  num_workers: 8
+  num_workers: 4
   learning_rate: 0.001
   max_epochs: 500
   accelerator: "auto"
@@ -47,7 +18,7 @@ train:
   amp_backend: "native"
   gradient_clip_val: 1.0
   accumulate_grad_batches: 1
-  sampling_interval: 50 # Generate samples every 50 epochs
+  sampling_interval: 5  # Generate samples every 50 epochs
 
 # Sampling configuration
 sampling:

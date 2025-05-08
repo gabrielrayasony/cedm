@@ -67,10 +67,10 @@ class SamplingCallback(L.Callback):
         
         # Create noise schedule
         noise_schedule = KarrasNoiseSchedule(
-            sigma_data=pl_module.config.model[pl_module.config.model.type].sigma_data,
-            sigma_min=pl_module.config.model[pl_module.config.model.type].sigma_min,
-            sigma_max=pl_module.config.model[pl_module.config.model.type].sigma_max,
-            rho=pl_module.config.model[pl_module.config.model.type].get('rho', 7.0)
+            sigma_data=pl_module.config.precond.sigma_data,
+            sigma_min=pl_module.config.precond.sigma_min,
+            sigma_max=pl_module.config.precond.sigma_max,
+            rho=pl_module.config.precond.get('rho', 7.0)
         )
         
         # Generate samples

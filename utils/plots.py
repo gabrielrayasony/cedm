@@ -1,5 +1,8 @@
 
 import os
+import torch
+import torchvision
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set_theme()
@@ -61,3 +64,46 @@ def plot_2d_data(x,
     else:
         plt.close(fig)
     return fig
+
+
+def plot_image_grid(images, nrow=8, padding=2, normalize=False, title=None, figsize=(10,10),
+                    workdir=None, name="plot", dpi=200, show=False):
+    """Plot a grid of images using torchvision's make_grid.
+    
+    Args:
+        images: torch tensor of shape (N, C, H, W)
+        nrow: number of images per row
+        padding: padding between images
+        normalize: normalize image values to [0,1]
+        title: title for the plot
+        figsize: figure size as (width, height)
+    """
+    # Convert to torch tensor if numpy array
+    if isinstance(images, np.ndarray):
+        images = torch.from_numpy(images)
+    
+    # Add channel dim if missing (for grayscale)
+    if images.dim() == 3:
+        images = images.unsqueeze(1)
+        
+    # Make grid
+    grid = torchvision.utils.make_grid(images, nrow=nrow, padding=padding, normalize=normalize)
+    
+    # Convert to numpy and transpose
+    grid = grid.cpu().numpy()
+    grid = np.transpose(grid, (1, 2, 0))
+    
+    # Plot
+    plt.figure(figsize=figsize)
+    if title:
+        plt.title(title)
+    plt.imshow(grid)
+    plt.axis('off')
+    plt.tight_layout()
+    if workdir:
+        os.makedirs(workdir, exist_ok=True)
+        filepath = os.path.join(workdir, f"{name}.png")
+        plt.savefig(filepath, dpi=dpi, bbox_inches="tight")
+        print(f"Plot saved at {filepath}")
+    if show:
+        plt.show()

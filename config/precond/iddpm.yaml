@@ -1,0 +1,6 @@
+# iDDPM (Improved DDPM) preconditioning configuration
+name: 'iddpm'
+sigma_data: 0.5    # Expected standard deviation of the training data
+C_1: 0.001        # Small constant for numerical stability
+C_2: 0.008        # Controls noise schedule
+M: 1000           # Number of noise levels 

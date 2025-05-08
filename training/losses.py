@@ -1,4 +1,4 @@
-"""Loss functions following the approach from the EDM paper and related works."""
+"""Loss functions for diffusion models."""
 
 import torch
 import math
@@ -42,7 +42,7 @@ class DiffusionLoss:
         # Add noise to images
         noise = torch.randn_like(images) * sigma
         noisy_images = images + noise
-        
+        # print("DEBUG: ", noisy_images.shape, images.shape, class_labels)
         # Get network prediction
         pred = net(noisy_images, sigma, class_labels)
         
@@ -183,51 +183,50 @@ class VELoss(DiffusionLoss):
 
 
 def get_loss_fn(config: Dict[str, Any]) -> DiffusionLoss:
-    """Create a loss function based on configuration parameters.
+    """Create a loss function based on preconditioning type.
     
     Args:
-        config: Dictionary containing loss configuration parameters. Must include:
-            - type: One of ['edm', 'vp', 've']
-            - Additional parameters specific to each loss type:
-                For EDM:
-                    - P_mean: Mean of log-normal distribution (default: -1.2)
-                    - P_std: Std of log-normal distribution (default: 1.2)
-                    - sigma_data: Data noise level (default: 0.5)
-                For VP:
-                    - beta_d: Maximum noise level (default: 19.9)
-                    - beta_min: Minimum noise level (default: 0.1)
-                    - epsilon_t: Small constant (default: 1e-5)
-                For VE:
-                    - sigma_min: Minimum noise level (default: 0.02)
-                    - sigma_max: Maximum noise level (default: 100)
+        config: Dictionary containing configuration parameters. Must include:
+            - precond: Dictionary with preconditioning configuration
+                - type: One of ['edm', 'vp', 've']
+                - Additional parameters specific to each type
     
     Returns:
         An instance of the specified loss function
         
     Raises:
-        ValueError: If an invalid loss type is specified
+        ValueError: If loss type doesn't match preconditioning type
     """
-    loss_type = config.get('type', 'edm').lower()
+    # Get preconditioning type
+    precond_type = config.precond.name
     
-    if loss_type == 'edm':
+    # Ensure loss type matches preconditioning type
+    if config.loss.name.lower() != precond_type:
+        raise ValueError(
+            f"Loss type {config.loss.name} does not match preconditioning type {precond_type}. "
+            f"Loss type must match preconditioning type."
+        )
+    
+    # Create loss function based on preconditioning type
+    if precond_type == 'edm':
         return EDMLoss(
-            P_mean=config.get('P_mean', -1.2),
-            P_std=config.get('P_std', 1.2),
-            sigma_data=config.get('sigma_data', 0.5)
+            P_mean=config['precond'].get('P_mean', -1.2),
+            P_std=config['precond'].get('P_std', 1.2),
+            sigma_data=config['precond'].get('sigma_data', 0.5)
         )
-    elif loss_type == 'vp':
+    elif precond_type == 'vp':
         return VPLoss(
-            beta_d=config.get('beta_d', 19.9),
-            beta_min=config.get('beta_min', 0.1),
-            epsilon_t=config.get('epsilon_t', 1e-5)
+            beta_d=config['precond'].get('beta_d', 19.9),
+            beta_min=config['precond'].get('beta_min', 0.1),
+            epsilon_t=config['precond'].get('epsilon_t', 1e-5)
         )
-    elif loss_type == 've':
+    elif precond_type == 've':
         return VELoss(
-            sigma_min=config.get('sigma_min', 0.02),
-            sigma_max=config.get('sigma_max', 100)
+            sigma_min=config['precond'].get('sigma_min', 0.02),
+            sigma_max=config['precond'].get('sigma_max', 100)
         )
     else:
-        raise ValueError(f"Invalid loss type: {loss_type}. Must be one of ['edm', 'vp', 've']")
+        raise ValueError(f"Invalid preconditioning type: {precond_type}. Must be one of ['edm', 'vp', 've']")
 
 
 # Test loss function 

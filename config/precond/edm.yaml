@@ -1,0 +1,8 @@
+# EDM (Elucidating Denoising Model) preconditioning configuration
+name: 'edm'
+sigma_data: 0.5    # Expected standard deviation of the training data
+sigma_min: 0.02    # Minimum noise level
+sigma_max: 100.0   # Maximum noise level
+rho: 7.0          # Controls noise schedule
+P_mean: -1.2      # Mean of log-normal distribution for noise sampling
+P_std: 1.2        # Standard deviation of log-normal distribution 

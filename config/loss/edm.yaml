@@ -1,0 +1,5 @@
+# EDM loss configuration
+name: 'edm'
+P_mean: -1.2      # Mean of log-normal distribution for noise sampling
+P_std: 1.2        # Standard deviation of log-normal distribution
+sigma_data: 0.5   # Expected standard deviation of the training data 

@@ -1,0 +1,4 @@
+# VE loss configuration
+name: 've'
+sigma_min: 0.02    # Minimum noise level
+sigma_max: 100.0   # Maximum noise level 

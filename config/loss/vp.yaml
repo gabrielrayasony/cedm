@@ -1,0 +1,5 @@
+# VP loss configuration
+name: 'vp'
+beta_d: 19.9      # Maximum noise level
+beta_min: 0.1     # Minimum noise level
+epsilon_t: 1e-5   # Small constant for numerical stability 

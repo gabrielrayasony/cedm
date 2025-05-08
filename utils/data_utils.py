@@ -35,3 +35,10 @@ def expand_dims(x: Tensor, target_ndim: int) -> Tensor:
     """
     return x.reshape(x.shape + (1,) * (target_ndim - x.ndim))
 
+def rescaling(x):
+    """Rescale data to [-1, 1]. Assumes data in [0,1]."""
+    return x * 2. - 1.
+
+def rescaling_inv(x):
+    """Rescale data back from [-1, 1] to [0,1]."""
+    return .5 * x + .5

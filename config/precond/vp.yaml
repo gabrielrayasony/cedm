@@ -1,0 +1,7 @@
+# VP (Variance Preserving) preconditioning configuration
+name: 'vp'
+sigma_data: 0.5    # Expected standard deviation of the training data
+beta_d: 19.9      # Maximum noise level
+beta_min: 0.1     # Minimum noise level
+M: 1000           # Number of noise levels
+epsilon_t: 1e-5   # Small constant for numerical stability 

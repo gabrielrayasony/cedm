@@ -11,6 +11,60 @@ from networks.preconditioning import (
     iDDPMPrecond
 )
 from models.edm import EDM
+from networks.edm_networks import SongUNet, DhariwalUNet
+
+
+def get_neural_net(config: Dict[str, Any]) -> nn.Module:
+    if config.model.class_conditional:
+        label_dim = config.model.label_dim
+    else:
+        label_dim = 0
+
+    if config.network.name == 'mlp':
+        net = MLP(
+            input_dim=config.network.input_dim,
+            hidden_dim=config.network.hidden_dim,
+            num_hidden_layers=config.network.num_hidden_layers
+        )
+    elif config.network.name == 'advanced_mlp':
+        base_model = AdvancedMLP(
+            input_dim=config.network.input_dim,
+            hidden_dim=config.network.hidden_dim,
+            num_hidden_layers=config.network.num_hidden_layers,
+            time_embedding_dim=config.network.time_embedding_dim
+        )
+
+    elif config.network.name in ['ddpmpp', 'ncsnpp']:
+        net = SongUNet(
+            img_resolution=config.dataset.img_resolution,
+            in_channels=config.dataset.in_channels,
+            out_channels=config.dataset.out_channels,
+            label_dim=label_dim,
+            embedding_type=config.network.embedding_type,
+            encoder_type=config.network.encoder_type,
+            decoder_type=config.network.decoder_type,
+            channel_mult_noise=config.network.channel_mult_noise,
+            resample_filter=list(config.network.resample_filter),
+            model_channels=config.network.model_channels,
+            channel_mult=list(config.network.channel_mult),
+            dropout=config.network.dropout,
+            num_blocks=config.network.num_blocks,
+        )
+    elif config.network.name == 'adm':
+        net = DhariwalUNet(
+            img_resolution=config.dataset.img_resolution,
+            in_channels=config.dataset.in_channels,
+            out_channels=config.dataset.out_channels,
+            label_dim=label_dim,
+            model_channels=config.network.model_channels,
+            channel_mult=config.network.channel_mult,
+            dropout=config.network.dropout,
+            num_blocks=config.network.num_blocks,
+        )
+    else:
+        raise ValueError(f"Unknown network type: {config.network.name}")
+    
+    return net
 
 def get_model(config: Dict[str, Any]) -> nn.Module:
     """Create a model based on configuration.
@@ -22,59 +76,41 @@ def get_model(config: Dict[str, Any]) -> nn.Module:
         Configured model
     """
     # Get model type
-    model_type = config.get('type', 'edm')
+    precond_type = config.precond.name
     
-    #--------------------------------
-    # Create base network
-    #--------------------------------
-    network_config = config.get('network', {})
+    # Get base model
+    base_model = get_neural_net(config)
 
-    if network_config.get('type', 'mlp') == 'mlp':
-        base_model = MLP(
-            input_dim=network_config.get('input_dim', 2),
-            hidden_dim=network_config.get('hidden_dim', 128),
-            num_hidden_layers=network_config.get('num_hidden_layers', 4),
-            time_embedding_dim=network_config.get('time_embedding_dim', 8)
-        )
-    elif network_config.get('type', 'mlp') == 'advanced_mlp':
-        base_model = AdvancedMLP(
-            input_dim=network_config.get('input_dim', 2),
-            hidden_dim=network_config.get('hidden_dim', 64),
-            num_hidden_layers=network_config.get('num_hidden_layers', 6),
-        )
-
-    # elif network_config.get('type', 'ddp') == 'unet':
-    
     # Create preconditioning based on model type
-    if model_type == 'edm':
+    if precond_type == 'edm':
         precond = EDMPrecond(
-            sigma_data=config['edm']['sigma_data'],
-            sigma_min=config['edm']['sigma_min'],
-            sigma_max=config['edm']['sigma_max']
+            sigma_data=config.precond.sigma_data,
+            sigma_min=config.precond.sigma_min,
+            sigma_max=config.precond.sigma_max
         )
-    elif model_type == 'vp':
+    elif precond_type == 'vp':
         precond = VPPrecond(
-            beta_d=config['vp']['beta_d'],
-            beta_min=config['vp']['beta_min'],
-            M=config['vp']['M'],
-            epsilon_t=config['vp']['epsilon_t'],
-            sigma_data=config['vp']['sigma_data']
+            beta_d=config.precond.beta_d,
+            beta_min=config.precond.beta_min,
+            M=config.precond.M,
+            epsilon_t=config.precond.epsilon_t,
+            sigma_data=config.precond.sigma_data
         )
-    elif model_type == 've':
+    elif precond_type == 've':
         precond = VEPrecond(
-            sigma_min=config['ve']['sigma_min'],
-            sigma_max=config['ve']['sigma_max'],
-            sigma_data=config['ve']['sigma_data']
+            sigma_min=config.precond.sigma_min,
+            sigma_max=config.precond.sigma_max,
+            sigma_data=config.precond.sigma_data
         )
-    elif model_type == 'iddpm':
+    elif precond_type == 'iddpm':
         precond = iDDPMPrecond(
-            C_1=config['iddpm']['C_1'],
-            C_2=config['iddpm']['C_2'],
-            M=config['iddpm']['M'],
-            sigma_data=config['iddpm']['sigma_data']
+            C_1=config.precond.C_1,
+            C_2=config.precond.C_2,
+            M=config.precond.M,
+            sigma_data=config.precond.sigma_data
         )
     else:
-        raise ValueError(f"Unknown model type: {model_type}")
+        raise ValueError(f"Unknown preconditioning type: {precond_type}")
     
     # Create EDM model with base network and preconditioning
     model = EDM(
