@@ -1,65 +1,89 @@
-"""Preconditioning schemes for diffusion models."""
+"""Preconditioning schemes for diffusion models.
 
+Partially based on the implementation from https://github.com/alshedivat/diffusion-playground/blob/main/diffusion/denoisers.py
+
+"""
+import abc
 import torch
 import torch.nn as nn
 from typing import Optional, Dict, Any, Union, Tuple
 from utils.data_utils import expand_dims
 
+# -----------------------------------------------------------------------------
+# Denoising models.  
+# -----------------------------------------------------------------------------
+# Classes deined below are used to wrap trainable models, precondition inputs
+# and outputs, and define a consistent API used at training and inference time.
+# Preconditioning helps improve the dynamics of training (Karras et al., 2022).
+# -----------------------------------------------------------------------------
 
-class BasePrecond(nn.Module):
-    """Base class for preconditioning schemes."""
+
+class Denoiser(nn.Module):
+    """Abstract base class for denoising models.
+       This essentially implements the forward pass and preconditioning."""
+
+    @abc.abstractmethod
+    def _c_in(self, sigma, sigma_data=None) -> torch.Tensor:
+        """Preconditioning coefficient for the input."""
+        pass
+
+    @abc.abstractmethod
+    def _c_out(self, sigma, sigma_data=None) -> torch.Tensor:
+        """Preconditioning coefficient for the output."""
+        pass
     
-    def __init__(
-        self,
-        sigma_data: float = 0.5,
-        sigma_min: float = 0.0,
-        sigma_max: float = float('inf'),
-        use_fp16: bool = False
-    ):
-        """Initialize base preconditioning.
-        
-        Args:
-            sigma_data: Expected standard deviation of the training data
-            sigma_min: Minimum supported noise level
-            sigma_max: Maximum supported noise level
-            use_fp16: Whether to use FP16 precision
-        """
-        super().__init__()
-        self.sigma_data = sigma_data
-        self.sigma_min = sigma_min
-        self.sigma_max = sigma_max
-        self.use_fp16 = use_fp16
-        
-    def forward(self, x: torch.Tensor, sigma: torch.Tensor, **kwargs) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Compute preconditioning coefficients.
-        
-        Args:
-            x: Input tensor
-            sigma: Noise level tensor
-            
-        Returns:
-            Tuple of (c_skip, c_out, c_in, c_noise)
-        """
-        raise NotImplementedError
-        
+    @abc.abstractmethod
+    def _c_skip(self, sigma, sigma_data=None) -> torch.Tensor:
+        """Preconditioning coefficient for the skip connection."""
+        pass
+    
     def round_sigma(self, sigma: torch.Tensor) -> torch.Tensor:
         """Round sigma to supported values."""
         return torch.clamp(sigma, self.sigma_min, self.sigma_max)
 
-class EDMPrecond(BasePrecond):
-    """EDM preconditioning scheme."""
-    
-    def forward(self, x: torch.Tensor, sigma: torch.Tensor, **kwargs) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        sigma = expand_dims(sigma.to(torch.float32), x.ndim)
+    @abc.abstractmethod
+    def forward(self, input, sigma, **kwargs):
+        """Computes the denoised output for a given input and noise level.
         
-        c_skip = self.sigma_data ** 2 / (sigma ** 2 + self.sigma_data ** 2)
-        c_out = sigma * self.sigma_data / (sigma ** 2 + self.sigma_data ** 2).sqrt()
-        c_in = 1 / (self.sigma_data ** 2 + sigma ** 2).sqrt()
-        c_noise = sigma.log() / 4
+        Args:
+            x: Input tensor
+            sigma: Noise level tensor
+            **kwargs: Additional arguments
+        Returns:
+            Tuple of (c_skip, c_out, c_in, c_noise)
+        """ 
         
-        return c_skip, c_out, c_in, c_noise
 
-class VPPrecond(BasePrecond):
+class EDMDenoiser(Denoiser):
+    """EDM denoising model."""
+    def __init__(self, model: nn.Module, sigma_data: float = 0.5):
+        super().__init__()
+        self.model = model
+        self.sigma_data = sigma_data
+        
+    def _c_in(self, sigma):
+        return 1 / (sigma ** 2 + self.sigma_data ** 2).sqrt()
+    
+    def _c_out(self, sigma):
+        return sigma / (sigma ** 2 + self.sigma_data ** 2).sqrt()
+    
+    def _c_skip(self, sigma):
+        return self.sigma_data ** 2 / (sigma ** 2 + self.sigma_data ** 2)
+    
+    def _c_noise(self, sigma):
+        return sigma.log() / 4
+    
+    def forward(self, x, sigma, class_labels=None, augment_labels=None):
+        sigma = sigma.to(torch.float32)
+        
+        c_skip = expand_dims(self._c_skip(sigma), x.ndim)
+        c_out = expand_dims(self._c_out(sigma), x.ndim)
+        c_in = expand_dims(self._c_in(sigma), x.ndim)
+        c_noise =self._c_noise(sigma)
+        
+        return c_skip * x + c_out * self.model(x * c_in, c_noise, class_labels, augment_labels)
+
+class VPPrecond(Denoiser):
     """Variance Preserving (VP) preconditioning scheme."""
     
     def __init__(
@@ -94,7 +118,7 @@ class VPPrecond(BasePrecond):
         
         return c_skip, c_out, c_in, c_noise
 
-class VEPrecond(BasePrecond):
+class VEPrecond(Denoiser):
     """Variance Exploding (VE) preconditioning scheme."""
     
     def forward(self, x: torch.Tensor, sigma: torch.Tensor, **kwargs) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -107,7 +131,7 @@ class VEPrecond(BasePrecond):
         
         return c_skip, c_out, c_in, c_noise
 
-class iDDPMPrecond(BasePrecond):
+class iDDPMPrecond(Denoiser):
     """Improved DDPM (iDDPM) preconditioning scheme."""
     
     def __init__(

@@ -1,20 +1,15 @@
-import os
 import hydra
 from omegaconf import DictConfig, OmegaConf
 import lightning as L
-import torch
 from pathlib import Path
 
-from models.edm import EDM
 from utils.model_utils import get_model
-from datamodules.toy_datasets import ToyDataModule
 from models.lightning.edm_lightning import EDMLightning
-from training.losses import get_loss_fn
 from callbacks.sampling_callback import SamplingCallback
+from callbacks.entropy_callback import EntropyCallback
 from utils.data_utils import get_datamodule, rescaling_inv
 import logging
-from utils.model_utils import get_neural_net
-from utils.plots import plot_2d_data, plot_image_grid
+from utils.plots import plot_data
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -39,31 +34,25 @@ def main(cfg: DictConfig):
     
     # Set up model
     logger.info("Setting up model...")
-    model = get_model(cfg)
+    model, _ = get_model(cfg)
 
     # Set up loss function based on model type
     logger.info(f"Setting up {cfg.model.name} loss function with {cfg.loss.name.upper()} loss class...")
-    loss_fn = get_loss_fn(cfg)
     
-    # Get Trainig Noise Scheduler from Loss Function
-    # noise_scheduler = loss_fn.noise_scheduler
-
     # Get Training Data
     data_module = get_datamodule(dataset_name=cfg.dataset.name, batch_size=cfg.train.batch_size, num_workers=cfg.train.num_workers)
     data_module.prepare_data()
     data_module.setup()
-    x, _ = next(iter(data_module.train_dataloader()))
+
     # Plot Training Data
-    if x.ndim == 2:
-        plot_2d_data(x.numpy(), name="training_data", figsize=(3, 3), workdir=results_dir)
-    else:
-        plot_image_grid(rescaling_inv(x[:64].numpy()), name="training_data", figsize=(3, 3), workdir=results_dir)
+    x, _ = next(iter(data_module.train_dataloader()))
+    plot_data(x, name="training_data", figsize=(3, 3), workdir=results_dir)
+    del x
 
     # Set up Lightning module
     logger.info("Setting up Lightning module...")
     lightning_model = EDMLightning(
         model=model,
-        loss_fn=loss_fn,
         config=cfg
     )
     
@@ -82,7 +71,15 @@ def main(cfg: DictConfig):
             viz_config=cfg.viz,
             save_dir=results_dir / "samples",
             sampling_interval=cfg.train.sampling_interval
-        )
+        ),
+        # Entropy callback
+        # EntropyCallback(
+        #     interval=cfg.train.entropy_interval,
+        #     num_timesteps=cfg.train.entropy_num_timesteps,
+        #     save_dir=results_dir / "entropy",
+        #     switch_to_entropic=True,
+        #     switch_epoch=5
+        # )
     ]
     
     # Set up trainer without logger

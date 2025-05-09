@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np 
 from typing import Optional
+from utils.data_utils import expand_dims
 
 #----------------------------------------------------------------------------#
 # Positional embedding
@@ -119,7 +120,7 @@ class MLP(nn.Module):
         
         self.net = nn.Sequential(*layers)
     
-    def forward(self, x: torch.Tensor, t: torch.Tensor, class_labels: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, x, t, class_labels=None, augment_labels=None):
         """Forward pass.
         
         Args:
@@ -130,7 +131,7 @@ class MLP(nn.Module):
             Output of shape [batch_size, input_dim]
         """
         # Get time embedding
-        t_emb = self.time_embedding(t)  # [batch_size, time_embedding_dim]
+        t_emb = self.time_embedding(expand_dims(t, x.ndim))  # [batch_size, time_embedding_dim]
         # Concatenate input and time embedding
         x = torch.cat([x, t_emb], dim=-1)  # [batch_size, input_dim + time_embedding_dim]
         
@@ -264,7 +265,7 @@ class AdvancedMLP(nn.Module):
         nn.init.zeros_(self.output_fc.weight)
         nn.init.zeros_(self.output_fc.bias)
 
-    def forward(self, x: torch.Tensor, t: torch.Tensor, class_labels: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, x, t, class_labels=None, augment_labels=None):
         """Forward pass.
         
         Args:
@@ -279,7 +280,7 @@ class AdvancedMLP(nn.Module):
         x = self.coord_transform(x)
         
         # Transform time
-        t_emb = self.time_transform(t)
+        t_emb = self.time_transform(expand_dims(t, x.ndim))
         
         # Apply MLP blocks
         for block in self.blocks:

@@ -41,4 +41,4 @@ def rescaling(x):
 
 def rescaling_inv(x):
     """Rescale data back from [-1, 1] to [0,1]."""
-    return .5 * x + .5
+    return (x + 1.) / 2.

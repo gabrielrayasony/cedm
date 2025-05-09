@@ -62,7 +62,7 @@ class SamplingCallback(L.Callback):
         pl_module.eval()
         
         # Create ODE and solver
-        ode = KarrasDiffEq(pl_module.model)
+        ode = KarrasDiffEq(pl_module.denoiser)
         solver = KarrasHeun2Solver()
         
         # Create noise schedule

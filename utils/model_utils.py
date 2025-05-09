@@ -5,12 +5,12 @@ import torch.nn as nn
 from typing import Dict, Any, Optional
 from networks.toy_network import MLP, AdvancedMLP
 from networks.preconditioning import (
-    EDMPrecond,
+    EDMDenoiser,
     VPPrecond,
     VEPrecond,
     iDDPMPrecond
 )
-from models.edm import EDM
+
 from networks.edm_networks import SongUNet, DhariwalUNet
 
 
@@ -83,13 +83,12 @@ def get_model(config: Dict[str, Any]) -> nn.Module:
 
     # Create preconditioning based on model type
     if precond_type == 'edm':
-        precond = EDMPrecond(
+        denoiser = EDMDenoiser(
+            model=base_model,
             sigma_data=config.precond.sigma_data,
-            sigma_min=config.precond.sigma_min,
-            sigma_max=config.precond.sigma_max
         )
     elif precond_type == 'vp':
-        precond = VPPrecond(
+        denoiser = VPPrecond(
             beta_d=config.precond.beta_d,
             beta_min=config.precond.beta_min,
             M=config.precond.M,
@@ -97,13 +96,13 @@ def get_model(config: Dict[str, Any]) -> nn.Module:
             sigma_data=config.precond.sigma_data
         )
     elif precond_type == 've':
-        precond = VEPrecond(
+        denoiser = VEPrecond(
             sigma_min=config.precond.sigma_min,
             sigma_max=config.precond.sigma_max,
             sigma_data=config.precond.sigma_data
         )
     elif precond_type == 'iddpm':
-        precond = iDDPMPrecond(
+        denoiser = iDDPMPrecond(
             C_1=config.precond.C_1,
             C_2=config.precond.C_2,
             M=config.precond.M,
@@ -111,11 +110,5 @@ def get_model(config: Dict[str, Any]) -> nn.Module:
         )
     else:
         raise ValueError(f"Unknown preconditioning type: {precond_type}")
-    
-    # Create EDM model with base network and preconditioning
-    model = EDM(
-        base_model=base_model,
-        precond=precond
-    )
-    
-    return model 
+
+    return denoiser, base_model

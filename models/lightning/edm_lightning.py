@@ -3,48 +3,92 @@
 import torch
 import lightning as L
 from typing import Optional, Dict, Any, Union, Tuple
-from models.edm import EDM
+# from models.edm import EDM
 from training.losses import DiffusionLoss
+from training.noise_samplers.factory import get_matching_sampler_and_loss
 import torch.nn as nn
+
 
 class EDMLightning(L.LightningModule):
     """Lightning module for training EDM models.
     
     This module handles the training loop, loss computation, and optimization
-    for EDM models. It takes the EDM model (which contains the network and
-    preconditioning) and the loss function as inputs.
+    for EDM models. It takes the EDM model and configuration as inputs.
     
     Args:
         model: EDM model containing the network and preconditioning
-        loss_fn: Loss function for training (handles noise sampling internally)
         config: Training configuration dictionary
     """
     
     def __init__(
         self,
-        model: EDM,
-        loss_fn: DiffusionLoss,
-        config: Optional[Dict[str, Any]] = None
+        model: nn.Module,
+        config: Dict[str, Any]
     ):
         """Initialize the EDM Lightning module.
         
         Args:
             model: EDM model instance containing the network and preconditioning
-            loss_fn: Loss function for training (handles noise sampling internally)
             config: Training configuration dictionary
         """
         super().__init__()
         
-        self.model = model
-        self.loss_fn = loss_fn
-        self.config = config or {}
-        self.train_loss = []
-        # Save hyperparameters for logging
-        self.save_hyperparameters(ignore=['model', 'loss_fn'])
+        self.denoiser = model
+        self.config = config
         
-    def forward(self, x: torch.Tensor, sigma: torch.Tensor, labels: Optional[torch.Tensor] = None) -> torch.Tensor:
+        # Get matching noise sampler and loss function
+        self.noise_sampler, self.loss_fn = get_matching_sampler_and_loss(config)
+        
+        # Store training history
+        self.train_loss = []
+        
+        # Save hyperparameters for logging
+        self.save_hyperparameters(ignore=['model'])
+        
+    def forward(self, x, sigma, class_labels=None, augment_labels=None):
         """Forward pass through the model."""
-        return self.model(x, sigma, labels)
+        return self.denoiser(x, sigma, class_labels, augment_labels)
+    
+    def compute_score(self, x, sigma, class_labels=None, augment_labels=None):
+        """Compute the score function from the denoising model.
+        
+        For EDM, the score function is computed as:
+        score(x, sigma) = (D(x, sigma) - x) / sigma^2
+        
+        where D(x, sigma) is the denoising model output.
+        
+        Args:
+            x: Input tensor
+            sigma: Noise level tensor
+            labels: Optional conditioning labels
+            class_labels: Optional class conditioning labels
+            
+        Returns:
+            Score function tensor
+        """
+        # Get denoised output from model
+        denoised = self.denoiser(x, sigma, class_labels, augment_labels)
+        
+        # Compute score according to EDM formulation
+        score = (denoised - x) / (sigma ** 2)
+        
+        return score
+    
+    def compute_score_entropy(self, x, sigma, class_labels=None, augment_labels=None):
+        """Compute entropy estimate using the score function.
+        
+        Args:
+            x: Input tensor
+            sigma: Noise level tensor
+            labels: Optional conditioning labels
+            class_labels: Optional class conditioning labels
+            
+        Returns:
+            Entropy estimate tensor
+        """
+        score = self.compute_score(x, sigma, class_labels, augment_labels)
+        entropy = -torch.mean(torch.sum(score * x, dim=1))
+        return entropy
     
     def training_step(self, batch: tuple, batch_idx: int) -> torch.Tensor:
         """Training step.
@@ -58,13 +102,21 @@ class EDMLightning(L.LightningModule):
         """
         x, _ = batch
         
-        # Get model prediction and compute loss
-        # The loss function will handle noise sampling internally
-        loss = self.loss_fn(self.model, x, class_labels=None)
+        # Sample noise levels
+        sigmas = self.noise_sampler(x.shape[0], device=x.device)
+        
+        # Compute loss with pre-sampled sigmas
+        loss = self.loss_fn(self.denoiser, x, sigmas, class_labels=None)
         
         # Log training loss
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
         self.train_loss.append(loss.item())
+        
+        # Optionally log score entropy if configured
+        if self.config.get('log_score_entropy', False):
+            entropy = self.compute_score_entropy(x, sigmas)
+            self.log('score_entropy', entropy, on_step=True, on_epoch=True)
+            
         return loss
     
     def validation_step(self, batch: tuple, batch_idx: int) -> None:
@@ -76,12 +128,19 @@ class EDMLightning(L.LightningModule):
         """
         x, _ = batch
         
-        # Get model prediction and compute loss
-        # The loss function will handle noise sampling internally
-        loss = self.loss_fn(self.model, x, None)
+        # Sample noise levels
+        sigmas = self.noise_sampler(x.shape[0], device=x.device)
+        
+        # Compute loss with pre-sampled sigmas
+        loss = self.loss_fn(self.denoiser, x, sigmas, None)
         
         # Log validation loss
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
+        
+        # Optionally log score entropy if configured
+        if self.config.get('log_score_entropy', False):
+            entropy = self.compute_score_entropy(x, sigmas)
+            self.log('val_score_entropy', entropy, on_step=False, on_epoch=True)
     
     def configure_optimizers(self):
         """Configure optimizers and learning rate schedulers."""

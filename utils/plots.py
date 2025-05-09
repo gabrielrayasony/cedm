@@ -5,6 +5,7 @@ import torchvision
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from utils.data_utils import rescaling_inv
 sns.set_theme()
 
 
@@ -59,7 +60,7 @@ def plot_2d_data(x,
         filepath = os.path.join(workdir, f"{name}.png")
         plt.savefig(filepath, dpi=dpi, bbox_inches="tight")
         print(f"Plot saved at {filepath}")
-    if show:
+    if show or workdir is None:
         plt.show()
     else:
         plt.close(fig)
@@ -94,7 +95,7 @@ def plot_image_grid(images, nrow=8, padding=2, normalize=False, title=None, figs
     grid = np.transpose(grid, (1, 2, 0))
     
     # Plot
-    plt.figure(figsize=figsize)
+    fig = plt.figure(figsize=figsize)
     if title:
         plt.title(title)
     plt.imshow(grid)
@@ -105,5 +106,16 @@ def plot_image_grid(images, nrow=8, padding=2, normalize=False, title=None, figs
         filepath = os.path.join(workdir, f"{name}.png")
         plt.savefig(filepath, dpi=dpi, bbox_inches="tight")
         print(f"Plot saved at {filepath}")
-    if show:
+    if show or workdir is None:
         plt.show()
+    else:
+        plt.close(fig)
+    return fig
+
+
+def plot_data(x, name="training_data", figsize=(3, 3), workdir=None):
+    if x.ndim == 2:
+        plot_2d_data(x.numpy(), name=name, figsize=figsize, workdir=workdir)
+    else:
+        plot_image_grid(rescaling_inv(x[:64]), name=name, figsize=figsize, normalize=True, workdir=workdir)
+

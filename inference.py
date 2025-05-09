@@ -4,6 +4,7 @@ import math
 from collections import deque
 from enum import Enum
 from typing import Callable, Union, Optional, Tuple, List, Deque
+import torch.nn as nn
 
 import sympy
 import torch
@@ -12,9 +13,8 @@ from tqdm import tqdm
 
 # from diffusion import utils
 import utils.data_utils as utils
-from models.edm import EDM
 
-# from diffusion.denoisers import Denoiser
+# from diffusion.denoissers import Denoiser
 
 Tensor = torch.Tensor
 SigmaFn = Callable[[Tensor], Tensor]
@@ -50,7 +50,7 @@ class BaseDiffEq(abc.ABC):
         denoiser: A denoising model.
     """
 
-    def __init__(self, denoiser: EDM) -> None:
+    def __init__(self, denoiser: nn.Module) -> None:
         self.denoiser = denoiser
         self._condition_labels = None
 
@@ -114,7 +114,7 @@ class KarrasDiffEq(BaseDiffEq):
 
     def __init__(
         self,
-        denoiser: EDM,
+        denoiser: nn.Module,
         t_to_sigma: Optional[Callable[[Tensor], Tensor]] = None,
         sigma_to_t: Optional[Callable[[Tensor], Tensor]] = None,
     ) -> None:
