@@ -145,21 +145,21 @@ class LogNormalNoiseSampler(NoiseSampler):
         self.sigma_max = 80.0
         self.rho = 7.0
 
-    # def sigma(self, t: torch.Tensor) -> torch.Tensor:
-    #     """
-    #     Map uniform t ∈ [0, 1] to log-normal sigma(t)
-    #     where log(sigma) ~ N(P_mean, P_std^2)
-    #     """
-    #     normal_t = torch.erfinv(2 * t - 1) * np.sqrt(2)  # z ∼ N(0, 1)
-    #     return (normal_t * self.P_std + self.P_mean).exp()
-    
     def sigma(self, t: torch.Tensor) -> torch.Tensor:
         """
         Map uniform t ∈ [0, 1] to log-normal sigma(t)
         where log(sigma) ~ N(P_mean, P_std^2)
         """
-        sigmas = (self.sigma_min ** (1 / self.rho) +  t * (self.sigma_max ** (1 / self.rho) - self.sigma_min ** (1 / self.rho))) ** self.rho
-        return sigmas
+        normal_t = torch.erfinv(2 * t - 1) * np.sqrt(2)  # z ∼ N(0, 1)
+        return (normal_t * self.P_std + self.P_mean).exp()
+    
+    # def sigma(self, t: torch.Tensor) -> torch.Tensor:
+    #     """
+    #     Map uniform t ∈ [0, 1] to log-normal sigma(t)
+    #     where log(sigma) ~ N(P_mean, P_std^2)
+    #     """
+    #     sigmas = (self.sigma_min ** (1 / self.rho) +  t * (self.sigma_max ** (1 / self.rho) - self.sigma_min ** (1 / self.rho))) ** self.rho
+    #     return sigmas
     
     def signal(self, t: torch.Tensor) -> torch.Tensor:
         t = torch.as_tensor(t)

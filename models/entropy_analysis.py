@@ -7,19 +7,18 @@ and visualizing the results.
 """
 
 import torch
-import numpy as np
 import matplotlib.pyplot as plt
 from typing import Optional, Tuple, List
 from pathlib import Path
 from utils.data_utils import expand_dims
 from tqdm import tqdm
 
+
 class EntropyAnalyzer:
     """Analyzer for computing and visualizing entropy dynamics in EDM."""
     
     def __init__(
         self,
-        model: torch.nn.Module,
         sigma_min: float = 0.002,
         sigma_max: float = 80.0,
         num_steps: int = 1000,
@@ -28,13 +27,11 @@ class EntropyAnalyzer:
         """Initialize entropy analyzer.
         
         Args:
-            model: EDM model instance
             sigma_min: Minimum noise level
             sigma_max: Maximum noise level
             num_steps: Number of steps for entropy computation
             device: Device to use for computation
         """
-        self.model = model
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
         self.num_steps = num_steps
@@ -43,14 +40,24 @@ class EntropyAnalyzer:
         # Create noise schedule
         self.sigmas = torch.linspace(sigma_min, sigma_max, num_steps, device=device)
     
-    def compute_time_derivative_entropy(self, x, t):
-        """Compute the time derivative of the conditional entropy H(X_t | X_0). """
-        x, t = x.to(self.device), t.to(self.device)
-        _, D = x.shape
+    @torch.no_grad()
+    def compute_time_derivative_entropy(self, model, x, t):
+        """Compute the time derivative of the conditional entropy H(X_t | X_0). 
+        
+        Args:
+            model: EDM model instance
+            x: Input tensor
+            t: Time tensor
+        """
+        model.eval()
+            
+        x, t = self.map_to_device(x), self.map_to_device(t)
+        # Get total dimension by multiplying all non-batch dimensions
+        D = x[0, :].numel()  
 
         # Get kernel components 
-        signal_t = self.model.noise_sampler.signal(t)
-        sigma_t = self.model.noise_sampler.sigma(t)
+        signal_t = model.noise_sampler.signal(t)
+        sigma_t = model.noise_sampler.sigma(t)
         sigma_t = expand_dims(sigma_t, 2)
 
         # Noisy input 
@@ -58,38 +65,44 @@ class EntropyAnalyzer:
         x_noised = x + noise * sigma_t
 
         # Get score function
-        score = self.model.compute_score(x_noised, sigma_t)
+        score = model.compute_score(x_noised, sigma_t)
 
         # Compute entropy estimate using score function
         mean_square_l2_norm_score = torch.mean(torch.sum(score, dim=1))
-        entropy_derivative = D/t - signal_t**2 * sigma_t * mean_square_l2_norm_score 
+        entropy_derivative = D/sigma_t - signal_t**2 * sigma_t * mean_square_l2_norm_score 
 
         return entropy_derivative.mean()
             
     @torch.no_grad()
-    def get_entropy_derivative(
-        self,
-        x: torch.Tensor,
-        t: torch.Tensor,
-        labels: Optional[torch.Tensor] = None,
-        class_labels: Optional[torch.Tensor] = None
-    ):
-        """Compute the time derivative of the conditional entropy H(X_t | X_0) over all timesteps."""
+    def get_entropy_derivative(self, model, x, t, labels=None, class_labels=None):
+        """Compute the time derivative of the conditional entropy H(X_t | X_0) over all timesteps.
+        
+        Args:
+            model: EDM model instance
+            x: Input tensor
+            t: Time tensor
+            labels: Optional conditioning labels
+            class_labels: Optional class conditioning labels
+        """      
         entropy_derivatives = []
 
         with torch.no_grad():
-            for t in tqdm(t, desc="Computing entropy derivatives"):
-                t = torch.ones(x.shape[0], device=self.device) * t
-                entropy_derivatives.append(self.compute_time_derivative_entropy(x, t))
+            for t_i in tqdm(t, desc="Computing entropy derivatives"):
+                t_i = torch.ones(x.shape[0], device=self.device) * t_i
+                entropy_derivatives.append(self.compute_time_derivative_entropy(model, x, t_i))
 
-        entropy_derivatives = torch.stack(entropy_derivatives)
-        return entropy_derivatives
+        return torch.stack(entropy_derivatives)
     
     @torch.no_grad()
     def compute_conditional_entropy(self, entropy_derivatives, timesteps):
-        """Compute the conditional entropy H(X_t | X_0) by integrating the time derivative using the Trapezoidal Rule."""
-        entropy_derivatives = entropy_derivatives.to(self.device)
-        timesteps = timesteps.to(self.device)
+        """Compute the conditional entropy H(X_t | X_0) by integrating the time derivative using the Trapezoidal Rule.
+        
+        Args:
+            entropy_derivatives: Tensor of entropy derivatives
+            timesteps: Tensor of timesteps
+        """
+        entropy_derivatives = self.map_to_device(entropy_derivatives)
+        timesteps = self.map_to_device(timesteps)
 
         # Compute timestep differences
         dt = torch.diff(timesteps)
@@ -133,6 +146,7 @@ class EntropyAnalyzer:
     
     def analyze_trajectory(
         self,
+        model: torch.nn.Module,
         x: torch.Tensor,
         labels: Optional[torch.Tensor] = None,
         class_labels: Optional[torch.Tensor] = None,
@@ -141,6 +155,7 @@ class EntropyAnalyzer:
         """Analyze entropy dynamics along a trajectory.
         
         Args:
+            model: EDM model instance
             x: Input samples
             labels: Optional conditioning labels
             class_labels: Optional class conditioning labels
@@ -149,10 +164,32 @@ class EntropyAnalyzer:
         Returns:
             Tuple of (sigma values, entropy values)
         """
-        sigmas, entropies = self.compute_score_entropy(x, labels, class_labels)
+        # Store original training state
+        was_training = model.training
         
-        if save_dir:
-            save_path = Path(save_dir) / "entropy_evolution.png"
-            self.plot_entropy_over_time(sigmas, entropies, save_path=str(save_path))
+        try:
+            # Set to eval mode
+            model.eval()
             
-        return sigmas, entropies 
+            # Create timesteps
+            timesteps = torch.linspace(1e-3, 1, self.num_steps, device=self.device)
+            
+            # Compute entropy derivatives
+            entropy_derivatives = self.get_entropy_derivative(model, x, timesteps, labels, class_labels)
+            
+            # Compute conditional entropy
+            conditional_entropy = self.compute_conditional_entropy(entropy_derivatives, timesteps)
+            
+            if save_dir:
+                save_path = Path(save_dir) / "entropy_evolution.png"
+                self.plot_entropy_over_time(timesteps.cpu(), conditional_entropy.cpu().tolist(), save_path=str(save_path))
+                
+            return timesteps, conditional_entropy
+            
+        finally:
+            # Restore original training state
+            if was_training:
+                model.train() 
+
+    def map_to_device(self, x): 
+        return x.to(self.device)

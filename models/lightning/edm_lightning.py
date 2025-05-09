@@ -2,12 +2,12 @@
 
 import torch
 import lightning as L
-from typing import Optional, Dict, Any, Union, Tuple
-# from models.edm import EDM
-from training.losses import DiffusionLoss
+from typing import Optional, Dict, Any, Tuple 
 from training.noise_samplers.factory import get_matching_sampler_and_loss
 import torch.nn as nn
+import logging
 
+logger = logging.getLogger(__name__)
 
 class EDMLightning(L.LightningModule):
     """Lightning module for training EDM models.
@@ -74,58 +74,22 @@ class EDMLightning(L.LightningModule):
         
         return score
     
-    def compute_score_entropy(self, x, sigma, class_labels=None, augment_labels=None):
-        """Compute entropy estimate using the score function.
-        
-        Args:
-            x: Input tensor
-            sigma: Noise level tensor
-            labels: Optional conditioning labels
-            class_labels: Optional class conditioning labels
-            
-        Returns:
-            Entropy estimate tensor
-        """
-        score = self.compute_score(x, sigma, class_labels, augment_labels)
-        entropy = -torch.mean(torch.sum(score * x, dim=1))
-        return entropy
-    
-    def training_step(self, batch: tuple, batch_idx: int) -> torch.Tensor:
-        """Training step.
-        
-        Args:
-            batch: Tuple of (x, labels) where labels is optional
-            batch_idx: Index of the current batch
-            
-        Returns:
-            Loss value
-        """
+    def training_step(self, batch: tuple, batch_idx: int):
         x, _ = batch
         
         # Sample noise levels
         sigmas = self.noise_sampler(x.shape[0], device=x.device)
-        
-        # Compute loss with pre-sampled sigmas
+
+        # Compute loss
         loss = self.loss_fn(self.denoiser, x, sigmas, class_labels=None)
         
         # Log training loss
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
         self.train_loss.append(loss.item())
-        
-        # Optionally log score entropy if configured
-        if self.config.get('log_score_entropy', False):
-            entropy = self.compute_score_entropy(x, sigmas)
-            self.log('score_entropy', entropy, on_step=True, on_epoch=True)
             
         return loss
     
-    def validation_step(self, batch: tuple, batch_idx: int) -> None:
-        """Validation step.
-        
-        Args:
-            batch: Tuple of (x, labels) where labels is optional
-            batch_idx: Index of the current batch
-        """
+    def validation_step(self, batch: tuple, batch_idx: int):
         x, _ = batch
         
         # Sample noise levels
@@ -137,10 +101,7 @@ class EDMLightning(L.LightningModule):
         # Log validation loss
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
         
-        # Optionally log score entropy if configured
-        if self.config.get('log_score_entropy', False):
-            entropy = self.compute_score_entropy(x, sigmas)
-            self.log('val_score_entropy', entropy, on_step=False, on_epoch=True)
+        return loss
     
     def configure_optimizers(self):
         """Configure optimizers and learning rate schedulers."""

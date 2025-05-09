@@ -19,6 +19,13 @@ train:
   gradient_clip_val: 1.0
   accumulate_grad_batches: 1
   sampling_interval: 5  # Generate samples every 50 epochs
+  use_entropic_sampler: True  # Flag to enable entropy-based sampling
+  entropic_warmup_epochs: 2    # Number of epochs to train with standard sampling before switching
+  entropic_num_grid_points: 100  # Number of points in entropy grid
+
+  # Entropy configuration
+  entropy_interval: 5
+  entropy_num_timesteps: 100
 
 # Sampling configuration
 sampling:

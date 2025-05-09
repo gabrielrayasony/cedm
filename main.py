@@ -2,17 +2,19 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 import lightning as L
 from pathlib import Path
+from typing import List
 
 from utils.model_utils import get_model
 from models.lightning.edm_lightning import EDMLightning
-from callbacks.sampling_callback import SamplingCallback
-from callbacks.entropy_callback import EntropyCallback
 from utils.data_utils import get_datamodule, rescaling_inv
 import logging
 from utils.plots import plot_data
+from utils.callback_utils import get_callbacks
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
 
 @hydra.main(version_base=None, config_path="config", config_name="config.yaml")
 def main(cfg: DictConfig):
@@ -36,6 +38,9 @@ def main(cfg: DictConfig):
     logger.info("Setting up model...")
     model, _ = get_model(cfg)
 
+    # Get callbacks
+    callbacks = get_callbacks(cfg, results_dir)
+
     # Set up loss function based on model type
     logger.info(f"Setting up {cfg.model.name} loss function with {cfg.loss.name.upper()} loss class...")
     
@@ -55,32 +60,7 @@ def main(cfg: DictConfig):
         model=model,
         config=cfg
     )
-    
-    # Set up callbacks
-    callbacks = [
-        # Model checkpointing
-        L.pytorch.callbacks.ModelCheckpoint(
-            dirpath=results_dir / "checkpoints",
-            monitor=cfg.logging.monitor,
-            mode=cfg.logging.mode,
-            save_top_k=cfg.logging.save_top_k
-        ),
-        # Sampling callback
-        SamplingCallback(
-            sampling_config=cfg.sampling,
-            viz_config=cfg.viz,
-            save_dir=results_dir / "samples",
-            sampling_interval=cfg.train.sampling_interval
-        ),
-        # Entropy callback
-        # EntropyCallback(
-        #     interval=cfg.train.entropy_interval,
-        #     num_timesteps=cfg.train.entropy_num_timesteps,
-        #     save_dir=results_dir / "entropy",
-        #     switch_to_entropic=True,
-        #     switch_epoch=5
-        # )
-    ]
+
     
     # Set up trainer without logger
     logger.info("Setting up trainer...")
