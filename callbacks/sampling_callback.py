@@ -3,10 +3,11 @@
 import torch
 import lightning as L
 from pathlib import Path
-import matplotlib.pyplot as plt
-from typing import Optional, Dict, Any
+import matplotlib.pyplot as plt 
+from typing import Optional, Dict, Any, Tuple, Union, List
+from omegaconf import ListConfig
 import logging
-from inference import (
+from samplers.inference import (
     KarrasDiffEq,
     KarrasHeun2Solver,
     KarrasNoiseSchedule,
@@ -24,6 +25,7 @@ class SamplingCallback(L.Callback):
     
     def __init__(
         self,
+        data_shape: Union[Tuple[int, ...], List[int]],
         sampling_config: Dict[str, Any],
         viz_config: Dict[str, Any],
         save_dir: str,
@@ -32,12 +34,19 @@ class SamplingCallback(L.Callback):
         """Initialize the sampling callback.
         
         Args:
+            data_shape: Shape of the data (can be ListConfig from Hydra, list, tuple, or str)
             sampling_config: Configuration for sampling parameters
             viz_config: Configuration for visualization parameters
             save_dir: Directory to save samples
             sampling_interval: Number of epochs between sample generations
         """
         super().__init__()
+        
+        if isinstance(data_shape, (ListConfig, list, tuple)):
+            self.data_shape = tuple(data_shape)
+        else:
+            raise TypeError(f"Unsupported data_shape type: {type(data_shape)}")
+        
         self.sampling_config = sampling_config
         self.viz_config = viz_config
         self.save_dir = Path(save_dir)
@@ -56,7 +65,7 @@ class SamplingCallback(L.Callback):
         if (trainer.current_epoch + 1) % self.sampling_interval != 0:
             return
             
-        logger.info(f"Generating samples at epoch {trainer.current_epoch + 1}")
+        logger.info(f"Generating samples at epoch {trainer.current_epoch + 1}") 
         
         # Set model to eval mode
         pl_module.eval()
@@ -76,7 +85,7 @@ class SamplingCallback(L.Callback):
         # Generate samples
         with torch.no_grad():
             samples = sample_trajectory_batch(
-                input_shape=(2,),  # For 2D data
+                input_shape=self.data_shape,
                 ode=ode,
                 solver=solver,
                 noise_schedule=noise_schedule,

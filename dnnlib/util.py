@@ -130,6 +130,7 @@ def open_url(url: str, cache_dir: str = None, num_attempts: int = 10, verbose: b
 
     url_md5 = hashlib.md5(url.encode("utf-8")).hexdigest()
     if cache:
+        print("Checking cache", cache_dir, url_md5)
         cache_files = glob.glob(os.path.join(cache_dir, url_md5 + "_*"))
         if len(cache_files) == 1:
             filename = cache_files[0]

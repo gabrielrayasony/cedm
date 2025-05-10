@@ -1,13 +1,20 @@
 # Basic configuration for diffusion model training
 defaults:
-  - network: mlp
-  - dataset: swiss_roll
+  - _self_
+  - network: mlp # Options: ddpmpp, ddpm, edm, advanced_mlp, mlp
+  - dataset: swiss_roll # Options: swiss_roll, cifar10
   - precond: edm  # This will load config/precond/edm.yaml
   - loss: edm    # This will load config/loss/edm.yaml
   - model: edm
 
 # Training configuration
 train:
+  # Post-training configuration
+  post_training: False  # Whether to use post-training mode
+  pretrained_path: null  # Path or URL to pretrained model
+  pretrained_cache_dir: null  # Optional custom cache directory for pretrained models
+  
+  # Standard training configuration
   batch_size: 256
   num_workers: 4
   learning_rate: 0.001
@@ -19,16 +26,17 @@ train:
   gradient_clip_val: 1.0
   accumulate_grad_batches: 1
   sampling_interval: 5  # Generate samples every 50 epochs
-  use_entropic_sampler: True  # Flag to enable entropy-based sampling
-  entropic_warmup_epochs: 2    # Number of epochs to train with standard sampling before switching
-  entropic_num_grid_points: 100  # Number of points in entropy grid
-
+   
   # Entropy configuration
   entropy_interval: 5
   entropy_num_timesteps: 100
+  entropic_sampler: False  # Flag to enable entropy-based sampling
+  entropic_warmup_epochs: 2    # Number of epochs to train with standard sampling before switching
+  entropic_num_grid_points: 100  # Number of points in entropy grid
+
 
 # Sampling configuration
-sampling:
+sampling: 
   batch_size: 500
   n_steps: 10
   # Evaluation samples

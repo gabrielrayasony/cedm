@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from scipy.interpolate import PchipInterpolator
 from typing import Optional, Tuple, Callable
-from models.entropy_analysis import EntropyAnalyzer
+from samplers.entropy_analysis import EntropyAnalyzer
 from training.noise_samplers.schedules import NoiseSampler
 import logging
 

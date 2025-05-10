@@ -6,7 +6,7 @@ Partially based on the implementation from https://github.com/alshedivat/diffusi
 import abc
 import torch
 import torch.nn as nn
-from typing import Optional, Dict, Any, Union, Tuple
+from typing import Union, Tuple
 from utils.data_utils import expand_dims
 
 # -----------------------------------------------------------------------------
@@ -50,7 +50,7 @@ class Denoiser(nn.Module):
             sigma: Noise level tensor
             **kwargs: Additional arguments
         Returns:
-            Tuple of (c_skip, c_out, c_in, c_noise)
+            Denoiser Prediction using the Preconditioning Coefficients c_skip, c_out, c_in, c_noise
         """ 
         
 
@@ -83,6 +83,7 @@ class EDMDenoiser(Denoiser):
         
         return c_skip * x + c_out * self.model(x * c_in, c_noise, class_labels, augment_labels)
 
+#TODO: Adapt the following preconditioning schemes to the new setting
 class VPPrecond(Denoiser):
     """Variance Preserving (VP) preconditioning scheme."""
     

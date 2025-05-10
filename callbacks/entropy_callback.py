@@ -3,11 +3,10 @@
 import lightning as L
 import torch
 import matplotlib.pyplot as plt
-import numpy as np
 from pathlib import Path
 import logging
-from typing import Optional, Dict, Any
-from models.entropy_analysis import EntropyAnalyzer
+from typing import Optional, Dict
+from samplers.entropy_analysis import EntropyAnalyzer
 from samplers.edm_entropic_sampler import EDMEntropicSampler
 
 logger = logging.getLogger(__name__)

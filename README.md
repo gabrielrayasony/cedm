@@ -1,5 +1,4 @@
-## CEDM: Training Diffusion Models with Conditional Entropy for Efficiency Training and Sampling<br><sub>Official PyTorch implementation of the CEDM paper</sub>
-
+# CEDM: Conditional Entropy Diffusion Models for Efficient Training and Sampling
 
 Steps: 
 
@@ -7,55 +6,6 @@ Steps:
 2. Add our entropic sampler for efficient training 
 
 
-# Modular EDM Framework in PyTorch Lightning
-
-This repository is intended to build a modular and research-friendly implementation of Elucidated Diffusion Models (EDM) using PyTorch Lightning. The goal is to provide a clear and extensible framework for studying the design space of diffusion models, starting from controlled experiments on low-dimensional 2D datasets.
-
-## Objective
-
-The initial phase of this project focuses on implementing EDM for 2D toy datasets to validate and study the impact of:
-
-- Preconditioning strategies,
-- Score network architectures (e.g., MLP vs. UNet),
-- Sampler configurations (e.g., ancestral, DDIM, Heun),
-- Entropy-based training schemes.
-
-This setup enables efficient experimentation and visualization prior to scaling to high-dimensional image data.
-
-## Implementation Plan
-
-The implementation is expected to follow a modular structure:
-
-### `networks/`
-- `edm_score_net.py`: Score-based models with EDM-compatible input/output normalization.
-- Support for multiple architectures.
-
-### `preconditioning/`
-- EDM-specific input and output scaling functions.
-- σ-dependent rescaling and embedding logic.
-
-### `samplers/`
-- `heun_sampler.py`, `ddim.py`, `ancestral.py`: Samplers with unified interfaces.
-- Support both EDM and DDPM-style schedules.
-
-### `sde/`
-- `edm_sde.py`: EDM-specific continuous σ schedule with σ_min, σ_max, and EDM-specific sampling noise levels.
-
-### `datasets/`
-- `toy_data.py`: Generate 2D toy datasets including:
-  - Two moons,
-  - Swiss roll,
-  - Gaussian mixtures.
-
-### `training/`
-- `lightning_module.py`: Wrap model, loss, optimizer, and score function.
-- Integrated with PyTorch Lightning's trainer and hooks.
-
-### `evaluation/`
-- Plotting utilities for:
-  - Sample trajectories,
-  - Entropy and score norm evolution,
-  - Wasserstein/MMD distances (optional).
 
 ## Experimental Procedure
 
@@ -88,6 +38,22 @@ The training loop should support:
 ## Getting Started
 
 To begin, start with a simple MLP score network trained with EDM sampling on a 2D dataset. Confirm sample quality before extending the architecture or integrating entropy-aware scheduling.
+
+### EDM-2D SwissRoll
+```bash
+python main.py network=mlp dataset=swiss_roll train.batch_size=512
+```
+
+### CEDM-2D SwissRoll
+```bash
+python main.py network=mlp dataset=swiss_roll train.batch_size=512 train.entropic_sampler=True
+```
+
+
+### EDM CIFAR10
+```bash
+python main.py network=ddpmpp dataset=cifar10 train.batch_size=128
+```
 
 ---
 

@@ -31,6 +31,7 @@ def get_callbacks(cfg: DictConfig, results_dir: Path) -> List[L.Callback]:
     # Sampling callback
     callbacks.append(
         SamplingCallback(
+            data_shape=cfg.dataset.data_shape,
             sampling_config=cfg.sampling,
             viz_config=cfg.viz,
             save_dir=results_dir / "samples",
@@ -38,14 +39,14 @@ def get_callbacks(cfg: DictConfig, results_dir: Path) -> List[L.Callback]:
         )
     )
 
-    if cfg.train.use_entropic_sampler:
+    if cfg.train.entropic_sampler:
         # Entropy callback
         callbacks.append(
             EntropyCallback(
                 interval=cfg.train.entropy_interval,
                 num_timesteps=cfg.train.entropy_num_timesteps,
                 save_dir=results_dir / "entropy",
-                switch_to_entropic=cfg.train.use_entropic_sampler,
+                switch_to_entropic=cfg.train.entropic_sampler,
                 switch_epoch=cfg.train.entropic_warmup_epochs,
                 entropic_config={
                     "sigma_min": cfg.precond.sigma_min,

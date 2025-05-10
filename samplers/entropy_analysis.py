@@ -57,12 +57,11 @@ class EntropyAnalyzer:
 
         # Get kernel components 
         signal_t = model.noise_sampler.signal(t)
-        sigma_t = model.noise_sampler.sigma(t)
-        sigma_t = expand_dims(sigma_t, 2)
+        sigma_t = model.noise_sampler.sigma(t) 
 
         # Noisy input 
         noise = torch.randn_like(x, device=self.device)
-        x_noised = x + noise * sigma_t
+        x_noised = x + noise * expand_dims(sigma_t, x.ndim)
 
         # Get score function
         score = model.compute_score(x_noised, sigma_t)

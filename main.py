@@ -1,19 +1,18 @@
 import hydra
 from omegaconf import DictConfig, OmegaConf
 import lightning as L
-from pathlib import Path
-from typing import List
+from pathlib import Path 
 
 from utils.model_utils import get_model
-from models.lightning.edm_lightning import EDMLightning
-from utils.data_utils import get_datamodule, rescaling_inv
+from models.edm_lightning import EDMLightning
+from utils.data_utils import get_datamodule
 import logging
 from utils.plots import plot_data
 from utils.callback_utils import get_callbacks
+from utils.name_utils import get_experiment_name
 
 # Set up logging
 logger = logging.getLogger(__name__)
-
 
 
 @hydra.main(version_base=None, config_path="config", config_name="config.yaml")
@@ -23,17 +22,18 @@ def main(cfg: DictConfig):
     Args:
         cfg: Hydra configuration object
     """
-    # Create experiment directory
-    experiment_name = f"{cfg.model.name}_{cfg.dataset.name}"
-    results_dir = Path("results") / experiment_name
-    results_dir.mkdir(parents=True, exist_ok=True)
-    
+       
     # Print configuration
     logger.info(f"Configuration: \n{OmegaConf.to_yaml(cfg)}")
     
     # Set random seed for reproducibility
     L.seed_everything(42)
     
+    # Get experiment name
+    experiment_name = get_experiment_name(cfg)
+    results_dir = Path("results") / experiment_name
+    results_dir.mkdir(parents=True, exist_ok=True)
+
     # Set up model
     logger.info("Setting up model...")
     model, _ = get_model(cfg)
@@ -60,7 +60,6 @@ def main(cfg: DictConfig):
         model=model,
         config=cfg
     )
-
     
     # Set up trainer without logger
     logger.info("Setting up trainer...")

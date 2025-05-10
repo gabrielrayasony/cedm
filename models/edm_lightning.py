@@ -3,6 +3,7 @@
 import torch
 import lightning as L
 from typing import Optional, Dict, Any, Tuple 
+from utils.data_utils import expand_dims
 from training.noise_samplers.factory import get_matching_sampler_and_loss
 import torch.nn as nn
 import logging
@@ -49,6 +50,7 @@ class EDMLightning(L.LightningModule):
         """Forward pass through the model."""
         return self.denoiser(x, sigma, class_labels, augment_labels)
     
+    @torch.no_grad()
     def compute_score(self, x, sigma, class_labels=None, augment_labels=None):
         """Compute the score function from the denoising model.
         
@@ -70,7 +72,7 @@ class EDMLightning(L.LightningModule):
         denoised = self.denoiser(x, sigma, class_labels, augment_labels)
         
         # Compute score according to EDM formulation
-        score = (denoised - x) / (sigma ** 2)
+        score = (denoised - x) / (expand_dims(sigma, x.ndim) ** 2)
         
         return score
     

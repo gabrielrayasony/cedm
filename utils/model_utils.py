@@ -1,8 +1,10 @@
 """Model utilities for creating and configuring models."""
 
-import torch
 import torch.nn as nn
-from typing import Dict, Any, Optional
+import dnnlib
+import pickle
+import logging
+from typing import Dict, Any
 from networks.toy_network import MLP, AdvancedMLP
 from networks.preconditioning import (
     EDMDenoiser,
@@ -12,8 +14,22 @@ from networks.preconditioning import (
 )
 
 from networks.edm_networks import SongUNet, DhariwalUNet
+logger = logging.getLogger(__name__)
 
+#-------------------------------------------------------------------------
+# Download a pre-trained network from URL
+#-------------------------------------------------------------------------
+def download_network(network_url: str) -> nn.Module:
+    """Download a pre-trained network from URL."""
+    logger.info(f"Downloading network from {network_url}...")
+    with dnnlib.util.open_url(network_url) as f:
+        logger.info("Downloaded model")
+        net = pickle.load(f)['ema']
+    return net
 
+#-------------------------------------------------------------------------
+# Get a neural network based on configuration
+#-------------------------------------------------------------------------
 def get_neural_net(config: Dict[str, Any]) -> nn.Module:
     if config.model.class_conditional:
         label_dim = config.model.label_dim
@@ -27,7 +43,7 @@ def get_neural_net(config: Dict[str, Any]) -> nn.Module:
             num_hidden_layers=config.network.num_hidden_layers
         )
     elif config.network.name == 'advanced_mlp':
-        base_model = AdvancedMLP(
+        net = AdvancedMLP(
             input_dim=config.network.input_dim,
             hidden_dim=config.network.hidden_dim,
             num_hidden_layers=config.network.num_hidden_layers,
@@ -66,6 +82,9 @@ def get_neural_net(config: Dict[str, Any]) -> nn.Module:
     
     return net
 
+#-------------------------------------------------------------------------
+# Get a Denoiser model based on configuration as described in the EDM paper
+#-------------------------------------------------------------------------
 def get_model(config: Dict[str, Any]) -> nn.Module:
     """Create a model based on configuration.
     
@@ -79,12 +98,12 @@ def get_model(config: Dict[str, Any]) -> nn.Module:
     precond_type = config.precond.name
     
     # Get base model
-    base_model = get_neural_net(config)
+    net = get_neural_net(config)
 
     # Create preconditioning based on model type
     if precond_type == 'edm':
         denoiser = EDMDenoiser(
-            model=base_model,
+            model=net,
             sigma_data=config.precond.sigma_data,
         )
     elif precond_type == 'vp':
@@ -111,4 +130,7 @@ def get_model(config: Dict[str, Any]) -> nn.Module:
     else:
         raise ValueError(f"Unknown preconditioning type: {precond_type}")
 
-    return denoiser, base_model
+    return denoiser, net
+
+
+
