@@ -54,6 +54,23 @@ python main.py network=mlp dataset=swiss_roll train.batch_size=512 train.entropi
 ```bash
 python main.py network=ddpmpp dataset=cifar10 train.batch_size=128
 ```
+---
+
+## TODO List
+
+- [X] Implement Wandb logger
+  - [ X ]  Log 2D Data
+  - [ ] log Image data
+- [ ] Visualize the forward noising process (how does it look for VP without the scaling factors)
+- [ ] Implement DDIM sampler for EDM formulation
+- [ ] Implement FID 
+- [ ] Reorganize config file format
+- [ ] Compare sample quality and training dynamics with standard methods
+- [ ] Visualize entropy profiles, loss curves, and generated samples
+- [ ] Document each module clearly
+- [ ] Add unit tests for core functionality
+- [ ] Create comprehensive documentation
+- [ ] Optimize training performance 
 
 ---
 

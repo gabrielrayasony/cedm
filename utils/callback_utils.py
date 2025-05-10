@@ -35,7 +35,8 @@ def get_callbacks(cfg: DictConfig, results_dir: Path) -> List[L.Callback]:
             sampling_config=cfg.sampling,
             viz_config=cfg.viz,
             save_dir=results_dir / "samples",
-            sampling_interval=cfg.train.sampling_interval
+            sampling_interval=cfg.train.sampling_interval,
+            use_logger=cfg.use_logger
         )
     )
 

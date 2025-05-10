@@ -115,7 +115,8 @@ def plot_image_grid(images, nrow=8, padding=2, normalize=False, title=None, figs
 
 def plot_data(x, name="training_data", figsize=(3, 3), workdir=None):
     if x.ndim == 2:
-        plot_2d_data(x.numpy(), name=name, figsize=figsize, workdir=workdir)
+        fig = plot_2d_data(x, name=name, figsize=figsize, workdir=workdir)
     else:
-        plot_image_grid(rescaling_inv(x[:64]), name=name, figsize=figsize, normalize=True, workdir=workdir)
+        fig = plot_image_grid(rescaling_inv(x[:64]), name=name, figsize=figsize, normalize=True, workdir=workdir)
+    return fig
 

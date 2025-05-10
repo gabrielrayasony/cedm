@@ -1,8 +1,11 @@
 import hydra
-from omegaconf import DictConfig, OmegaConf
+import wandb
 import lightning as L
 from pathlib import Path 
+from omegaconf import DictConfig, OmegaConf
+from lightning.pytorch.loggers import WandbLogger
 
+from config.wandb_config import key
 from utils.model_utils import get_model
 from models.edm_lightning import EDMLightning
 from utils.data_utils import get_datamodule
@@ -14,6 +17,12 @@ from utils.name_utils import get_experiment_name
 # Set up logging
 logger = logging.getLogger(__name__)
 
+def get_logger(cfg: DictConfig, key: str, experiment_name: str):
+    if cfg.use_logger:
+        wandb.login(key=key)
+        return WandbLogger(project=cfg.project_name, name=experiment_name)
+    else:
+        return None
 
 @hydra.main(version_base=None, config_path="config", config_name="config.yaml")
 def main(cfg: DictConfig):
@@ -61,6 +70,9 @@ def main(cfg: DictConfig):
         config=cfg
     )
     
+    # Get logger
+    wandb_logger = get_logger(cfg, key, experiment_name)
+
     # Set up trainer without logger
     logger.info("Setting up trainer...")
     trainer = L.Trainer(
@@ -70,7 +82,7 @@ def main(cfg: DictConfig):
         precision=cfg.train.precision,
         callbacks=callbacks,
         enable_progress_bar=True,  # Keep progress bar for development
-        logger=False  # Disable logging
+        logger=wandb_logger  # Pass Wandb Logger or None
     )
     
     # Train model

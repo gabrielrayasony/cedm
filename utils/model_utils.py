@@ -46,8 +46,7 @@ def get_neural_net(config: Dict[str, Any]) -> nn.Module:
         net = AdvancedMLP(
             input_dim=config.network.input_dim,
             hidden_dim=config.network.hidden_dim,
-            num_hidden_layers=config.network.num_hidden_layers,
-            time_embedding_dim=config.network.time_embedding_dim
+            num_hidden_layers=config.network.num_hidden_layers, 
         )
 
     elif config.network.name in ['ddpmpp', 'ncsnpp']:

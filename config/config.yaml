@@ -1,11 +1,16 @@
 # Basic configuration for diffusion model training
 defaults:
   - _self_
-  - network: mlp # Options: ddpmpp, ddpm, edm, advanced_mlp, mlp
+  - network: advanced_mlp # Options: ddpmpp, ddpm, edm, advanced_mlp, mlp
   - dataset: swiss_roll # Options: swiss_roll, cifar10
   - precond: edm  # This will load config/precond/edm.yaml
   - loss: edm    # This will load config/loss/edm.yaml
   - model: edm
+
+# Wandb logger configuration
+use_logger: True
+project_name: "edm-2d"
+
 
 # Training configuration
 train:

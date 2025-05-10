@@ -1,11 +1,12 @@
 """Callback for generating and visualizing samples during training."""
-
+import wandb
 import torch
 import lightning as L
 from pathlib import Path
 import matplotlib.pyplot as plt 
 from typing import Optional, Dict, Any, Tuple, Union, List
 from omegaconf import ListConfig
+from utils.plots import plot_data
 import logging
 from samplers.inference import (
     KarrasDiffEq,
@@ -29,7 +30,8 @@ class SamplingCallback(L.Callback):
         sampling_config: Dict[str, Any],
         viz_config: Dict[str, Any],
         save_dir: str,
-        sampling_interval: int = 50
+        sampling_interval: int = 50,
+        use_logger: bool = False
     ):
         """Initialize the sampling callback.
         
@@ -39,6 +41,7 @@ class SamplingCallback(L.Callback):
             viz_config: Configuration for visualization parameters
             save_dir: Directory to save samples
             sampling_interval: Number of epochs between sample generations
+            use_logger: Whether to log samples to wandb
         """
         super().__init__()
         
@@ -51,22 +54,14 @@ class SamplingCallback(L.Callback):
         self.viz_config = viz_config
         self.save_dir = Path(save_dir)
         self.sampling_interval = sampling_interval
+        self.use_logger = use_logger  # Initialize use_logger attribute
         
         # Create save directory
         self.save_dir.mkdir(parents=True, exist_ok=True)
-        
-    def on_train_epoch_end(self, trainer: L.Trainer, pl_module: L.LightningModule) -> None:
-        """Generate and save samples at the end of each training epoch if interval is reached.
-        
-        Args:
-            trainer: Lightning trainer
-            pl_module: Lightning module
-        """
-        if (trainer.current_epoch + 1) % self.sampling_interval != 0:
-            return
-            
-        logger.info(f"Generating samples at epoch {trainer.current_epoch + 1}") 
-        
+    
+    @torch.no_grad()
+    def generate_samples(self, pl_module: L.LightningModule) -> None:
+        """Generate samples from the model."""
         # Set model to eval mode
         pl_module.eval()
         
@@ -83,20 +78,43 @@ class SamplingCallback(L.Callback):
         )
         
         # Generate samples
-        with torch.no_grad():
-            samples = sample_trajectory_batch(
-                input_shape=self.data_shape,
-                ode=ode,
-                solver=solver,
-                noise_schedule=noise_schedule,
-                batch_size=self.sampling_config.batch_size,
-                n_steps=self.sampling_config.n_steps,
-                device=pl_module.device
-            )
+        samples = sample_trajectory_batch(
+            input_shape=self.data_shape,
+            ode=ode,
+            solver=solver,
+            noise_schedule=noise_schedule,
+            batch_size=self.sampling_config.batch_size,
+            n_steps=self.sampling_config.n_steps,
+            device=pl_module.device
+        )
+        
+        return samples
+    
+
+    def on_train_epoch_end(self, trainer: L.Trainer, pl_module: L.LightningModule) -> None:
+        """Generate and save samples at the end of each training epoch if interval is reached.
+        
+        Args:
+            trainer: Lightning trainer
+            pl_module: Lightning module
+        """
+        if (trainer.current_epoch + 1) % self.sampling_interval != 0:
+            return
+            
+        logger.info(f"Generating samples at epoch {trainer.current_epoch + 1}") 
+        
+        # Generate samples
+        samples = self.generate_samples(pl_module)
         
         # Plot and save samples
-        self._plot_samples(samples, trainer.current_epoch + 1)
+        fig = self._plot_samples(samples, trainer.current_epoch + 1)
         
+        # Log to wandb if enabled
+        if self.use_logger and trainer.logger is not None:
+            trainer.logger.experiment.log({
+                "Generated Samples": wandb.Image(fig, caption=f"Epoch {trainer.current_epoch + 1}")
+            }, step=trainer.global_step)
+
         # Set model back to training mode
         pl_module.train()
         
@@ -109,18 +127,10 @@ class SamplingCallback(L.Callback):
         """
         # Get final samples
         final_samples = samples[-1].detach().cpu().numpy()
-        
-        # Create plot
-        plt.figure(figsize=tuple(self.viz_config.figsize))
-        plt.scatter(final_samples[:, 0], final_samples[:, 1])
-        plt.title(f"Generated Samples (Epoch {epoch})")
-        plt.xlabel("X")
-        plt.ylabel("Y")
-        plt.grid(True)
-        
+            
         # Save plot
-        save_path = self.save_dir / f"samples_epoch_{epoch}.png"
-        plt.savefig(save_path)
-        plt.close()
-        
+        name=f"samples_epoch_{epoch}"
+        save_path = self.save_dir / name
+        fig = plot_data(final_samples, name=name, figsize=tuple(self.viz_config.figsize), workdir=self.save_dir)
         logger.info(f"Saved samples to {save_path}") 
+        return fig
